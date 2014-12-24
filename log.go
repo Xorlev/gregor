@@ -31,18 +31,20 @@ func (fms *FileMessageSet) Read(start uint64, maxMessages uint) ([]*Message, err
 
 	messages := make([]*Message, 0)
 	for offset < fileStat.Size() && messageCount < maxMessages {
-		messageSizeBuf := make([]byte, 4)
-		fms.f.ReadAt(messageSizeBuf, offset)
+		messageSize, err := fms.readUint32(offset)
+		if err != nil {
+			return nil, err
+		}
 
-		messageSize := int64(binary.BigEndian.Uint32(messageSizeBuf))
 		if messageSize > MESSAGE_SIZE_LIMIT {
 			return nil, fmt.Errorf("Message larger than message size limit: %d > %d",
 				messageSize, MESSAGE_SIZE_LIMIT)
 		}
 
-		crc32bytes := make([]byte, 4)
-		fms.f.ReadAt(crc32bytes, offset+4)
-		crc := uint32(binary.BigEndian.Uint32(crc32bytes))
+		crc, err := fms.readUint32(offset + 4)
+		if err != nil {
+			return nil, err
+		}
 
 		messageBuf := make([]byte, messageSize) // 4mb limit
 		fms.f.ReadAt(messageBuf, offset+8)
@@ -54,7 +56,7 @@ func (fms *FileMessageSet) Read(start uint64, maxMessages uint) ([]*Message, err
 
 		messages = append(messages, newMessage)
 
-		offset += messageSize + 4 + 4
+		offset += int64(messageSize) + 4 + 4
 		messageCount += 1
 	}
 
@@ -85,14 +87,15 @@ func (fms *FileMessageSet) Close() error {
 	return fms.f.Close()
 }
 
+func (fms *FileMessageSet) readUint32(offset int64) (uint32, error) {
+	buffer := make([]byte, 4)
+	if _, err := fms.f.ReadAt(buffer, offset); err != nil {
+		return 0, err
+	}
+	return uint32(binary.BigEndian.Uint32(buffer)), nil
+}
+
 func (fms *FileMessageSet) writeData(data interface{}) error {
 	// TODO: more efficient writes, but this is convenient
 	return binary.Write(fms.f, binary.BigEndian, data)
-}
-
-func int32bytes(num uint32) []byte {
-	slice := make([]byte, 4)
-	binary.BigEndian.PutUint32(slice, num)
-
-	return slice
 }
