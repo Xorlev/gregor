@@ -1,0 +1,54 @@
+package main
+
+import (
+	"github.com/stretchr/testify/assert"
+	"testing"
+)
+
+func TestMessageEncodeDecode(t *testing.T) {
+	msg := &Message{Key: []byte("key"), Value: []byte("abcdabcdabcdabcdabcdabceabcdabcabcdabcdabcdabcd")}
+
+	buf := msg.WriteBuffer()
+
+	msg2, err := hydrateMessage(buf)
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.Equal(t, msg.Key, msg2.Key)
+	assert.Equal(t, msg.Value, msg2.Value)
+}
+
+var msgBytes []byte
+
+func BenchmarkMessageEncode(b *testing.B) {
+	b.ReportAllocs()
+
+	sourceMsg := &Message{Key: []byte("key"), Value: []byte("abcdabcdabcdabcdabcdabceabcdabcabcdabcdabcdabcd")}
+
+	var bb []byte
+	for i := 0; i < b.N; i++ {
+		bb = sourceMsg.WriteBuffer()
+	}
+
+	msgBytes = bb
+}
+
+var msg *Message
+
+func BenchmarkMessageDecode(b *testing.B) {
+	b.ReportAllocs()
+
+	ba := []byte{0xfa, 0x90, 0x25, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x6b,
+		0x65, 0x79, 0x00, 0x00, 0x00, 0x2f, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63,
+		0x64, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64,
+		0x61, 0x62, 0x63, 0x65, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x61, 0x62,
+		0x63, 0x64, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64}
+
+	var m *Message
+	for i := 0; i < b.N; i++ {
+		m, _ = hydrateMessage(ba)
+	}
+
+	msg = m
+}
