@@ -15,30 +15,32 @@ type LogSegment interface {
 	Close() error
 	Delete() error
 	LastModified() *time.Time
+	LastFlushTime() *time.Time
 }
 
 type IndexingLogSegment struct {
 	LogSegment
 
-	offsetIndex *OffsetIndex
-	messageSet  *MessageSet
+	offsetIndex *FileOffsetIndex
+	messageSet  *FileMessageSet
 
 	nextOffset uint64
 }
 
 func (ls *IndexingLogSegment) Read(startOffset uint64, maxOffset uint64, maxSize uint32) ([]*Message, error) {
-	return nil
+	return nil, nil
 }
 
 func (ls *IndexingLogSegment) Append(message *Message) error {
 	newOffset := atomic.AddUint64(&ls.nextOffset, 1)
 
+	// Append(offset uint64, message *Message) (uint64, error)
 	position, err := ls.messageSet.Append(newOffset, message)
 	if err != nil {
 		return err
 	}
 
-	if err := ls.offsetIndex.Index(offset, position); err != nil {
+	if err := ls.offsetIndex.Index(newOffset, position); err != nil {
 		return err
 	}
 

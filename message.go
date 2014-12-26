@@ -114,7 +114,7 @@ func (msg *Message) WriteBuffer() []byte {
 	return buffer
 }
 
-func hydrateMessage(messageSlice []byte, offset uint64) (*Message, error) {
+func hydrateMessage(messageSlice []byte) (*Message, error) {
 	var keyLen = int32(binary.BigEndian.Uint32(messageSlice[KeySizeOffset:]))
 
 	// If keylen == -1, then we skip it

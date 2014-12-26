@@ -5,3 +5,11 @@ package main
 type OffsetIndex interface {
 	Index(offset uint64, position uint64) error
 }
+
+type FileOffsetIndex struct {
+	OffsetIndex
+}
+
+func (*FileOffsetIndex) Index(offset uint64, position uint64) error {
+	return nil
+}

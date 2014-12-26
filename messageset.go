@@ -20,6 +20,7 @@ type MessageSet interface {
 	Append(offset uint64, message *Message) (uint64, error)
 	Sync() error
 	Close() error
+	Delete() error
 }
 
 type FileMessageSet struct {
@@ -27,15 +28,16 @@ type FileMessageSet struct {
 	f *os.File
 }
 
-func (fms *FileMessageSet) Open(path string) error {
+func Open(path string) (*FileMessageSet, error) {
 
 	var err error
+	fms := new(FileMessageSet)
 	fms.f, err = os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return fms, nil
 }
 
 func (fms *FileMessageSet) Read(start uint64, maxMessages uint) ([]*MessageAndOffset, error) {
@@ -67,7 +69,7 @@ func (fms *FileMessageSet) Read(start uint64, maxMessages uint) ([]*MessageAndOf
 		messageBuf := make([]byte, messageSize)              // 4mb limit
 		fms.f.ReadAt(messageBuf, fileOffset+MessageOverhead) // at offset + msgoffset + msgsize
 
-		newMessage, err := hydrateMessage(messageBuf, messageOffset)
+		newMessage, err := hydrateMessage(messageBuf)
 		if err != nil {
 			return nil, err
 		}
@@ -85,14 +87,17 @@ func (fms *FileMessageSet) Append(offset uint64, message *Message) (uint64, erro
 	msgBuffer := message.WriteBuffer()
 
 	// Seek nowhere to get our current position
-	msgStart := fms.f.Seek(0, 0)
+	// msgStart, err := fms.f.Seek(1, 0)
+	// if err != nil {
+	// 	return 0, err
+	// }
 
 	// Write offset, messagelength, and message
 	fms.writeData(offset)
 	fms.writeData(uint32(len(msgBuffer)))
 	fms.f.Write(msgBuffer)
 
-	return msgStart, nil
+	return uint64(0), nil
 }
 
 func (fms *FileMessageSet) Sync() error {
@@ -105,6 +110,10 @@ func (fms *FileMessageSet) Close() error {
 	}
 
 	return fms.f.Close()
+}
+
+func (fms *FileMessageSet) Delete() error {
+	return os.Remove(fms.f.Name())
 }
 
 func (fms *FileMessageSet) readUint64(offset int64) (uint64, error) {

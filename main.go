@@ -5,8 +5,8 @@ import (
 )
 
 func main() {
-	messageSet := new(FileMessageSet)
-	if err := messageSet.Open("/tmp/kafka-logs/hello-0/00000000000000000000.log"); err != nil {
+	messageSet, err := Open("/tmp/kafka-logs/hello-0/00000000000000000000.log")
+	if err != nil {
 
 	}
 	defer messageSet.Close()

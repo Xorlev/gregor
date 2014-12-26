@@ -1,8 +1,6 @@
 package main
 
-import (
-	"time"
-)
+import ()
 
 /* A log wraps operations around log segments, mainly important metadata
 such as time the log segment was last fsynced and the current offsets / current segment.
@@ -16,5 +14,4 @@ type Log interface {
 	Roll() error
 	Flush() error
 	Delete() error
-	LastFlushTime() *time.Time
 }
