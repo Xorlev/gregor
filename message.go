@@ -18,20 +18,7 @@ import (
  * 5. K byte key
  * 6. 4 byte payload length, containing length V
  * 7. V byte payload
- *
- * Default constructor wraps an existing ByteBuffer with the Message object with no change to the contents.
-
-Kafka message on-disk:
-0-4 CRC32
-4 Magic
-5 Attributes (inc. compression info)
-6-10 Key length
-10-n Key
-n-n+4 Payload Length
-n+4-m Payload
-
-
-*/
+ */
 const (
 	CrcOffset        = 0
 	CrcLength        = 4
@@ -46,11 +33,22 @@ const (
 
 	MessageHeaderSize = CrcLength + MagicLength + AttributesLength + KeySizeLength
 
+	// -1 in 2's complement is all 1's, so we just do that for a constant
+	// otherwise Go makes you do gymanstics of going from a constant to a
+	// var x int to a uint32.
 	KEY_MISSING = 0xffffffff
 )
 
+type MessageAndOffset struct {
+	Offset  uint64
+	Message *Message
+}
+
+func (msg *MessageAndOffset) String() string {
+	return fmt.Sprintf("MessageAndOffset[offset=%d, message=%s]", msg.Offset, msg.Message)
+}
+
 type Message struct {
-	Offset     uint64
 	Checksum   uint32
 	Version    byte
 	Attributes byte
@@ -59,7 +57,7 @@ type Message struct {
 }
 
 func (msg *Message) String() string {
-	return fmt.Sprintf("Message[offset=%d, key=%s, value=%s]", msg.Offset, string(msg.Key), string(msg.Value))
+	return fmt.Sprintf("Message[key=%s, value=%s]", string(msg.Key), string(msg.Value))
 }
 
 func (msg *Message) size() uint32 {
@@ -89,8 +87,6 @@ func (msg *Message) WriteBuffer() []byte {
 
 	// Key -- is -1 if 0-length
 	if keySize == 0 {
-		// Go (rightly so) won't convert -1 to a uint32.
-		// So we just set all the bits to 1 and call it a day.
 		binary.BigEndian.PutUint32(buffer[offset:], KEY_MISSING)
 	} else {
 		binary.BigEndian.PutUint32(buffer[offset:], keySize)
@@ -136,7 +132,6 @@ func hydrateMessage(messageSlice []byte, offset uint64) (*Message, error) {
 	valueOffset := valueLengthOffset + ValueSizeLength
 
 	msg := &Message{
-		Offset:     offset,
 		Checksum:   binary.BigEndian.Uint32(messageSlice[CrcOffset:]),
 		Version:    messageSlice[MagicOffset : MagicOffset+MagicLength][0],
 		Attributes: messageSlice[AttributesOffset : AttributesOffset+AttributesLength][0],

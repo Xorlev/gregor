@@ -11,7 +11,8 @@ func main() {
 	}
 	defer messageSet.Close()
 
-	messageSet.Append(&Message{Offset: 0, Key: []byte("k1"), Value: []byte("hello world!")})
-	messageSet.Append(&Message{Offset: 1, Key: []byte("k2"), Value: []byte("indeed2")})
-	fmt.Println(messageSet.Read(0, 2))
+	messageSet.Append(0, &Message{Key: []byte{}, Value: []byte("hello world!")})
+	messageSet.Append(1, &Message{Key: []byte("k2"), Value: []byte("indeed2")})
+	messageSet.Append(2, &Message{Key: []byte("k2"), Value: []byte("indeed3")})
+	fmt.Println(messageSet.Read(0, 3))
 }

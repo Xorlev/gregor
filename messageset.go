@@ -37,7 +37,7 @@ func (fms *FileMessageSet) Open(path string) error {
 	return nil
 }
 
-func (fms *FileMessageSet) Read(start uint64, maxMessages uint) ([]*Message, error) {
+func (fms *FileMessageSet) Read(start uint64, maxMessages uint) ([]*MessageAndOffset, error) {
 	var fileOffset = int64(start)
 
 	fileStat, err := fms.f.Stat()
@@ -45,9 +45,9 @@ func (fms *FileMessageSet) Read(start uint64, maxMessages uint) ([]*Message, err
 		return nil, err
 	}
 
-	messages := make([]*Message, 0)
+	messages := make([]*MessageAndOffset, 0)
 	var messageCount = uint(0)
-	for fileOffset < fileStat.Size() && messageCount < maxMessages {
+	for (fileOffset+MessageOverhead) < fileStat.Size() && messageCount < maxMessages {
 		messageOffset, err := fms.readUint64(fileOffset)
 		if err != nil {
 			return nil, err
@@ -71,7 +71,7 @@ func (fms *FileMessageSet) Read(start uint64, maxMessages uint) ([]*Message, err
 			return nil, err
 		}
 
-		messages = append(messages, newMessage)
+		messages = append(messages, &MessageAndOffset{messageOffset, newMessage})
 
 		fileOffset += MessageOverhead + int64(messageSize)
 		messageCount += 1
@@ -80,11 +80,11 @@ func (fms *FileMessageSet) Read(start uint64, maxMessages uint) ([]*Message, err
 	return messages, nil
 }
 
-func (fms *FileMessageSet) Append(message *Message) error {
+func (fms *FileMessageSet) Append(offset uint64, message *Message) error {
 	msgBuffer := message.WriteBuffer()
 
 	// Write offset, messagelength, and message
-	fms.writeData(message.Offset)
+	fms.writeData(offset)
 	fms.writeData(uint32(len(msgBuffer)))
 	fms.f.Write(msgBuffer)
 
