@@ -2,14 +2,16 @@ package main
 
 import (
 	"fmt"
-	"os"
 )
 
 func main() {
 	messageSet := new(FileMessageSet)
-	messageSet.f, _ = os.OpenFile("/tmp/msgset", os.O_CREATE|os.O_RDWR, 0666)
+	if err := messageSet.Open("/tmp/kafka-logs/hello-0/00000000000000000000.log"); err != nil {
 
-	messageSet.Append(&Message{Offset: 1122334455, Payload: []byte("hello world!")})
-	messageSet.Append(&Message{Offset: 9999999999, Payload: []byte("indeed")})
+	}
+	defer messageSet.Close()
+
+	messageSet.Append(&Message{Offset: 0, Key: []byte("k1"), Payload: []byte("hello world!")})
+	messageSet.Append(&Message{Offset: 1, Key: []byte("k2"), Payload: []byte("indeed2")})
 	fmt.Println(messageSet.Read(0, 2))
 }
