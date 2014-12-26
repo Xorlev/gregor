@@ -17,7 +17,8 @@ const (
 
 type MessageSet interface {
 	Read(start uint64, messages uint) ([]*Message, error)
-	Append(message *Message) error
+	Append(offset uint64, message *Message) (uint64, error)
+	Sync() error
 	Close() error
 }
 
@@ -80,19 +81,29 @@ func (fms *FileMessageSet) Read(start uint64, maxMessages uint) ([]*MessageAndOf
 	return messages, nil
 }
 
-func (fms *FileMessageSet) Append(offset uint64, message *Message) error {
+func (fms *FileMessageSet) Append(offset uint64, message *Message) (uint64, error) {
 	msgBuffer := message.WriteBuffer()
+
+	// Seek nowhere to get our current position
+	msgStart := fms.f.Seek(0, 0)
 
 	// Write offset, messagelength, and message
 	fms.writeData(offset)
 	fms.writeData(uint32(len(msgBuffer)))
 	fms.f.Write(msgBuffer)
 
-	return nil
+	return msgStart, nil
+}
+
+func (fms *FileMessageSet) Sync() error {
+	return fms.f.Sync()
 }
 
 func (fms *FileMessageSet) Close() error {
-	// fms.f.Sync()
+	if err := fms.Sync(); err != nil {
+		return err
+	}
+
 	return fms.f.Close()
 }
 
