@@ -45,6 +45,8 @@ const (
 	ValueSizeLength  = 4
 
 	MessageHeaderSize = CrcLength + MagicLength + AttributesLength + KeySizeLength
+
+	KEY_MISSING = 0xffffffff
 )
 
 type Message struct {
@@ -87,7 +89,9 @@ func (msg *Message) WriteBuffer() []byte {
 
 	// Key -- is -1 if 0-length
 	if keySize == 0 {
-		copy(buffer[offset:], unsafeCastInt32ToBytes(-1))
+		// Go (rightly so) won't convert -1 to a uint32.
+		// So we just set all the bits to 1 and call it a day.
+		binary.BigEndian.PutUint32(buffer[offset:], KEY_MISSING)
 	} else {
 		binary.BigEndian.PutUint32(buffer[offset:], keySize)
 	}
@@ -142,7 +146,7 @@ func hydrateMessage(messageSlice []byte, offset uint64) (*Message, error) {
 
 	expectedCrc := crc32.ChecksumIEEE(messageSlice[MagicOffset : valueOffset+valueLen])
 	if expectedCrc != msg.Checksum {
-		return nil, fmt.Errorf("Expected crc32 for message payload didn't match: %d != %d",
+		return nil, fmt.Errorf("Expected crc32 for message didn't match: %d != %d",
 			expectedCrc, msg.Checksum)
 	}
 
