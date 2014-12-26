@@ -11,7 +11,7 @@ func main() {
 	}
 	defer messageSet.Close()
 
-	messageSet.Append(&Message{Offset: 0, Key: []byte("k1"), Payload: []byte("hello world!")})
-	messageSet.Append(&Message{Offset: 1, Key: []byte("k2"), Payload: []byte("indeed2")})
+	messageSet.Append(&Message{Offset: 0, Key: []byte("k1"), Value: []byte("hello world!")})
+	messageSet.Append(&Message{Offset: 1, Key: []byte("k2"), Value: []byte("indeed2")})
 	fmt.Println(messageSet.Read(0, 2))
 }

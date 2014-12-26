@@ -52,14 +52,10 @@ func (fms *FileMessageSet) Read(start uint64, maxMessages uint) ([]*Message, err
 			return nil, err
 		}
 
-		fmt.Println(messageOffset)
-
 		messageSize, err := fms.readUint32(fileOffset + OffsetLength)
 		if err != nil {
 			return nil, err
 		}
-
-		fmt.Println(messageSize)
 
 		if messageSize > MESSAGE_SIZE_LIMIT {
 			return nil, fmt.Errorf("Message larger than message size limit: %d > %d",

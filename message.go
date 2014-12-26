@@ -33,16 +33,16 @@ n+4-m Payload
 
 */
 const (
-	CrcOffset         = 0
-	CrcLength         = 4
-	MagicOffset       = CrcOffset + CrcLength // 4
-	MagicLength       = 1
-	AttributesOffset  = MagicOffset + MagicLength // 5
-	AttributesLength  = 1
-	KeySizeOffset     = AttributesOffset + AttributesLength // 6
-	KeySizeLength     = 4
-	KeyOffset         = KeySizeOffset + KeySizeLength
-	PayloadSizeLength = 4
+	CrcOffset        = 0
+	CrcLength        = 4
+	MagicOffset      = CrcOffset + CrcLength // 4
+	MagicLength      = 1
+	AttributesOffset = MagicOffset + MagicLength // 5
+	AttributesLength = 1
+	KeySizeOffset    = AttributesOffset + AttributesLength // 6
+	KeySizeLength    = 4
+	KeyOffset        = KeySizeOffset + KeySizeLength
+	ValueSizeLength  = 4
 
 	MessageHeaderSize = CrcLength + MagicLength + AttributesLength + KeySizeLength
 )
@@ -53,59 +53,63 @@ type Message struct {
 	Version    byte
 	Attributes byte
 	Key        []byte
-	Payload    []byte
+	Value      []byte
 }
 
-func (m *Message) String() string {
-	return fmt.Sprintf("Message[offset=%d, payload=%s]", m.Offset, string(m.Payload))
+func (msg *Message) String() string {
+	return fmt.Sprintf("Message[offset=%d, key=%s, value=%s]", msg.Offset, string(msg.Key), string(msg.Value))
 }
 
 func (msg *Message) size() uint32 {
-	return uint32(8 + len(msg.Payload))
+	return uint32(MessageHeaderSize + len(msg.Key) + ValueSizeLength + len(msg.Value))
+}
+
+func (msg *Message) keySize() uint32 {
+	return uint32(len(msg.Key))
+}
+
+func (msg *Message) valueSize() uint32 {
+	return uint32(len(msg.Value))
 }
 
 func (msg *Message) WriteBuffer() []byte {
-	bufSize := uint32(MessageHeaderSize + len(msg.Key) + PayloadSizeLength + len(msg.Payload))
-	keySize := uint32(len(msg.Key))
-	payloadSize := uint32(len(msg.Payload))
+	keySize := msg.keySize()
+	valueSize := msg.valueSize()
 
-	buffer := make([]byte, bufSize)
-	encodeBuf := make([]byte, 8)
+	buffer := make([]byte, msg.size())
 
 	var offset = uint32(0)
-
+	offset += CrcLength
 	// Magic (5)
+	offset += MagicLength
 	// Attributes (6)
+	offset += AttributesLength
 
 	// Key -- is -1 if 0-length
-	offset = KeySizeOffset
 	if keySize == 0 {
-		copy(encodeBuf, unsafeCastInt32ToBytes(-1))
+		copy(buffer[offset:], unsafeCastInt32ToBytes(-1))
 	} else {
-		binary.BigEndian.PutUint32(encodeBuf, keySize)
+		binary.BigEndian.PutUint32(buffer[offset:], keySize)
 	}
-	copy(buffer[offset:offset+KeySizeLength], encodeBuf)
+	offset += KeySizeLength
 
 	// Key
-	offset = KeyOffset
 	if keySize > 0 {
-		copy(buffer[offset:offset+keySize], msg.Key)
+		copy(buffer[offset:], msg.Key)
 	}
+	offset += keySize
 
 	// Payload Size
-	binary.BigEndian.PutUint32(encodeBuf, payloadSize)
-	offset += keySize
-	copy(buffer[offset:offset+PayloadSizeLength], encodeBuf)
+	binary.BigEndian.PutUint32(buffer[offset:], valueSize)
+	offset += ValueSizeLength
 
 	// Payload
-	offset += PayloadSizeLength
-	fmt.Printf("Writing payload: [%d:%d]", offset, offset+payloadSize)
-	copy(buffer[offset:offset+payloadSize], msg.Payload)
+	copy(buffer[offset:], msg.Value)
+	offset += uint32(len(msg.Value))
 
 	// Take CRC of all bytes after the CRC
 	crc := crc32.ChecksumIEEE(buffer[MagicOffset:])
-	binary.BigEndian.PutUint32(encodeBuf, crc)
-	copy(buffer[CrcOffset:CrcOffset+CrcLength], encodeBuf)
+	binary.BigEndian.PutUint32(buffer[CrcOffset:], crc)
 
 	return buffer
 }
@@ -122,10 +126,10 @@ func hydrateMessage(messageSlice []byte, offset uint64) (*Message, error) {
 		keySlice = messageSlice[KeyOffset : KeyOffset+keyLen]
 	}
 
-	payloadLengthOffset := KeyOffset + uint32(keyLen)
-	payloadLen := binary.BigEndian.Uint32(messageSlice[payloadLengthOffset : payloadLengthOffset+PayloadSizeLength])
+	valueLengthOffset := KeyOffset + uint32(keyLen)
+	valueLen := binary.BigEndian.Uint32(messageSlice[valueLengthOffset : valueLengthOffset+ValueSizeLength])
 
-	payloadOffset := payloadLengthOffset + PayloadSizeLength
+	valueOffset := valueLengthOffset + ValueSizeLength
 
 	msg := &Message{
 		Offset:     offset,
@@ -133,14 +137,13 @@ func hydrateMessage(messageSlice []byte, offset uint64) (*Message, error) {
 		Version:    messageSlice[MagicOffset : MagicOffset+MagicLength][0],
 		Attributes: messageSlice[AttributesOffset : AttributesOffset+AttributesLength][0],
 		Key:        keySlice,
-		Payload:    messageSlice[payloadOffset : payloadOffset+payloadLen],
+		Value:      messageSlice[valueOffset : valueOffset+valueLen],
 	}
 
-	payloadCrc := msg.Checksum
-	expectedCrc := crc32.ChecksumIEEE(messageSlice[MagicOffset : payloadOffset+payloadLen])
-	if expectedCrc != payloadCrc {
+	expectedCrc := crc32.ChecksumIEEE(messageSlice[MagicOffset : valueOffset+valueLen])
+	if expectedCrc != msg.Checksum {
 		return nil, fmt.Errorf("Expected crc32 for message payload didn't match: %d != %d",
-			expectedCrc, payloadCrc)
+			expectedCrc, msg.Checksum)
 	}
 
 	return msg, nil
