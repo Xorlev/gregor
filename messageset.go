@@ -12,6 +12,7 @@ const (
 	MESSAGE_FORMAT_VERSION = uint16(1)
 	OffsetLength           = 8
 	MessageSizeLength      = 4
+	MessageOverhead        = OffsetLength + MessageSizeLength
 )
 
 type MessageSet interface {
@@ -62,8 +63,8 @@ func (fms *FileMessageSet) Read(start uint64, maxMessages uint) ([]*Message, err
 				messageSize, MESSAGE_SIZE_LIMIT)
 		}
 
-		messageBuf := make([]byte, messageSize)                             // 4mb limit
-		fms.f.ReadAt(messageBuf, fileOffset+OffsetLength+MessageSizeLength) // at offset + msgoffset + msgsize
+		messageBuf := make([]byte, messageSize)              // 4mb limit
+		fms.f.ReadAt(messageBuf, fileOffset+MessageOverhead) // at offset + msgoffset + msgsize
 
 		newMessage, err := hydrateMessage(messageBuf, messageOffset)
 		if err != nil {
@@ -72,7 +73,7 @@ func (fms *FileMessageSet) Read(start uint64, maxMessages uint) ([]*Message, err
 
 		messages = append(messages, newMessage)
 
-		fileOffset += OffsetLength + MessageSizeLength + int64(messageSize)
+		fileOffset += MessageOverhead + int64(messageSize)
 		messageCount += 1
 	}
 

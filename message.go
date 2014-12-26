@@ -115,7 +115,7 @@ func (msg *Message) WriteBuffer() []byte {
 }
 
 func hydrateMessage(messageSlice []byte, offset uint64) (*Message, error) {
-	var keyLen = int32(binary.BigEndian.Uint32(messageSlice[KeySizeOffset : KeySizeOffset+KeySizeLength]))
+	var keyLen = int32(binary.BigEndian.Uint32(messageSlice[KeySizeOffset:]))
 
 	// If keylen == -1, then we skip it
 	var keySlice []byte
@@ -127,13 +127,13 @@ func hydrateMessage(messageSlice []byte, offset uint64) (*Message, error) {
 	}
 
 	valueLengthOffset := KeyOffset + uint32(keyLen)
-	valueLen := binary.BigEndian.Uint32(messageSlice[valueLengthOffset : valueLengthOffset+ValueSizeLength])
+	valueLen := binary.BigEndian.Uint32(messageSlice[valueLengthOffset:])
 
 	valueOffset := valueLengthOffset + ValueSizeLength
 
 	msg := &Message{
 		Offset:     offset,
-		Checksum:   binary.BigEndian.Uint32(messageSlice[CrcOffset : CrcOffset+CrcLength]),
+		Checksum:   binary.BigEndian.Uint32(messageSlice[CrcOffset:]),
 		Version:    messageSlice[MagicOffset : MagicOffset+MagicLength][0],
 		Attributes: messageSlice[AttributesOffset : AttributesOffset+AttributesLength][0],
 		Key:        keySlice,
