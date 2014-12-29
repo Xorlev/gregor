@@ -147,8 +147,3 @@ func hydrateMessage(messageSlice []byte) (*Message, error) {
 
 	return msg, nil
 }
-
-func unsafeCastInt32ToBytes(val int32) []byte {
-	hdr := reflect.SliceHeader{Data: uintptr(unsafe.Pointer(&val)), Len: 4, Cap: 4}
-	return *(*[]byte)(unsafe.Pointer(&hdr))
-}
