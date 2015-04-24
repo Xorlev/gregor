@@ -1,4 +1,4 @@
-package main
+package storage
 
 // An offset index maintains offset-based indices into each log segment's underlying
 // storage file

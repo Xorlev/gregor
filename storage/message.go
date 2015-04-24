@@ -1,11 +1,9 @@
-package main
+package storage
 
 import (
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
-	"reflect"
-	"unsafe"
 )
 
 /**
